@@ -1,17 +1,19 @@
-import datetime
-
-import telebot, xlsxwriter, sqlalchemy
+import telebot, xlsxwriter, sqlalchemy, datetime, random
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm import sessionmaker
 
-engine = sqlalchemy.create_engine('sqlite:///users.db', echo=False, pool_recycle=7200)
+engine_users = sqlalchemy.create_engine('sqlite:///users.db', echo=False, pool_recycle=7200)
+engine_roles = sqlalchemy.create_engine('sqlite:///roles.db', echo=False, pool_recycle=7200)
 
 metadata = sqlalchemy.MetaData()
-metadata.create_all(engine)
 users_table = sqlalchemy.Table('users', metadata,
 				sqlalchemy.Column('name', sqlalchemy.String, primary_key=True),
 				sqlalchemy.Column('birthday', sqlalchemy.String),
 				sqlalchemy.Column('role', sqlalchemy.String))
+
+roles_table = sqlalchemy.Table('roles', metadata,
+				sqlalchemy.Column('id', sqlalchemy.Integer, primary_key=True),
+				sqlalchemy.Column('name', sqlalchemy.String))
 
 
 class User(object):
@@ -21,8 +23,16 @@ class User(object):
 		self.role = role
 
 
+class Role(object):
+	def __init__(self, id, name):
+		self.id = id
+		self.name = name
+
+
 mapper(User, users_table)
-metadata.create_all(engine)
+mapper(Role, roles_table)
+metadata.create_all(engine_users)
+metadata.create_all(engine_roles)
 
 bot = telebot.TeleBot("5755560169:AAGKcRL8Qc7QlVzFRIBrww-YNk46DjGXYvc")
 fio = False
@@ -52,9 +62,19 @@ def msg(message):
 	global fio
 	if fio:
 		fio = False
-		user = User(message.text, datetime.datetime.today().strftime("%Y.%m.%d"), "543543gr")
+		Session_roles = sessionmaker(bind=engine_roles)
+		session_roles = Session_roles()
+		query = session_roles.query(Role)
+		query_list = list(query)
 
-		Session = sessionmaker(bind=engine)
+		user = User(message.text, datetime.datetime(random.randint(1960, 1998), random.randint(1, 12),
+													random.randint(1, 30)).strftime("%Y.%m.%d"),
+					query_list[random.randint(0, 1)].name)
+
+		session_roles.close()
+		query_list = None
+
+		Session = sessionmaker(bind=engine_users)
 		session = Session()
 		session.add(user)
 		session.commit()
@@ -64,15 +84,14 @@ def msg(message):
 
 		workbook = xlsxwriter.Workbook('users.xlsx')
 		worksheet = workbook.add_worksheet()
+		worksheet.set_column(0, 2, 30)
 		worksheet.write('A1', 'ФИО')
 		worksheet.write('B1', 'Дата рождения')
 		worksheet.write('C1', 'Наименование роли')
 
 		expenses = []
-		for item in query_list[::-1]:
+		for item in query_list[:-6:-1]:
 			expenses.append([item.name, item.birthday, item.role])
-			if len(expenses) == 5:
-				break
 
 		row = 1
 		col = 0
