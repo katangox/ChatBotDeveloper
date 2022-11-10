@@ -105,5 +105,10 @@ def msg(message):
 		workbook.close()
 		session.close()
 
+		file = open("users.xlsx", "rb")
+		bot.send_document(message.chat.id, file)
+		file.close()
+		send_welcome(message)
+
 # Запуск бота
 bot.infinity_polling()
